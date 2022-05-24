@@ -1,19 +1,20 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: prometheus-deployment
+  name: prometheus
   namespace: monitoring
   labels:
-    app: prometheus-server
+    app: prometheus
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: prometheus-server
+      app: prometheus
   template:
     metadata:
       labels:
-        app: prometheus-server
+        app: prometheus
     spec:
       containers:
         - name: prometheus
@@ -21,6 +22,8 @@ spec:
           args:
             - "--config.file=/etc/prometheus/prometheus.yml"
             - "--storage.tsdb.path=/prometheus/"
+            - "--web.external-url=https://gravitate-health.lst.tfo.upm.es/prometheus"
+            - "--web.route-prefix=/prometheus"
           ports:
             - containerPort: 9090
           volumeMounts:
@@ -32,7 +35,7 @@ spec:
         - name: prometheus-config-volume
           configMap:
             defaultMode: 420
-            name: prometheus-server-conf
+            name: prometheus-conf
   
         - name: prometheus-storage-volume
           emptyDir: {}
