@@ -11,7 +11,9 @@ Config is externalized in a configMap (so images does not need to be rebuilt). T
 
 ## Grafana
 
-The Prometheus datasource is configured in the [Grafana configMap](./grafana/grafana-datasource-config.yaml)
+- The Prometheus datasource is configured in the [Grafana configMap](./grafana/grafana-datasource-config.yaml).
+- To enable grafana behind a reverse proxy with a subpath (i.e a prefix), you must include the subpath at the end of *root_url*, such as `https://gravitate-health.lst.tfo.upm.es:3000/`**`grafana/`**
+
 
 
 ## TODO 

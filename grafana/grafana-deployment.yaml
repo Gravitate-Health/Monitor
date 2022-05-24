@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,12 +29,18 @@ spec:
             memory: 500M
             cpu: "500m"
         volumeMounts:
+          - name: grafana-config
+            mountPath: /etc/grafana/grafana.ini
+            subPath: grafana.ini
           - mountPath: /var/lib/grafana
             name: grafana-storage
           - mountPath: /etc/grafana/provisioning/datasources
             name: grafana-datasources
             readOnly: false
       volumes:
+        - name: grafana-config
+          configMap:
+            name: grafana-ini
         - name: grafana-storage
           emptyDir: {}
         - name: grafana-datasources
