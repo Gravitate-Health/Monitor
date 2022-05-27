@@ -32,6 +32,15 @@ data:
           - "alertmanager.monitoring.svc:9093"
 
     scrape_configs:
+
+      - job_name: 'Loopbacks'
+        static_configs:
+          - targets: ['med-info.development.svc.cluster.local:3000', 'med-management.development.svc.cluster.local:3000']
+          
+      - job_name: 'databases-mongo'
+        static_configs:
+          - targets: ['mongo-med-info.development.svc.cluster.local:27017']
+
       - job_name: 'node-exporter'
         kubernetes_sd_configs:
           - role: endpoints

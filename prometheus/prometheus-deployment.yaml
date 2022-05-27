@@ -21,9 +21,7 @@ spec:
           image: prom/prometheus
           args:
             - "--config.file=/etc/prometheus/prometheus.yml"
-            - "--storage.tsdb.path=/prometheus/"
             - "--web.external-url=https://gravitate-health.lst.tfo.upm.es/prometheus"
-            - "--web.route-prefix=/prometheus"
           ports:
             - containerPort: 9090
           volumeMounts:
@@ -36,6 +34,6 @@ spec:
           configMap:
             defaultMode: 420
             name: prometheus-conf
-  
+
         - name: prometheus-storage-volume
           emptyDir: {}
