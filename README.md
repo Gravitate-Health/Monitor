@@ -1,29 +1,30 @@
-# 1. Gravitate-Health Monitor system
+Gravitate-Health Monitor system
+--------
 
-1.1. Table of contents
+1. Table of contents
 -----------------
 
-- [1. Gravitate-Health Monitor system](#1-gravitate-health-monitor-system)
-  - [1.1. Table of contents](#11-table-of-contents)
-  - [1.2. Introduction](#12-introduction)
-  - [1.3. Kubernetes Deployment](#13-kubernetes-deployment)
-    - [1.3.1. Prerequisites](#131-prerequisites)
-    - [1.3.2. Prepare the environment](#132-prepare-the-environment)
-    - [1.3.3. Prometheus](#133-prometheus)
-    - [1.3.4. Grafana](#134-grafana)
-  - [1.4. Usage](#14-usage)
-    - [1.4.1. Dashboards](#141-dashboards)
-  - [1.5. Known issues and limitations](#15-known-issues-and-limitations)
-  - [1.6. Getting help](#16-getting-help)
-  - [1.7. Contributing](#17-contributing)
-  - [1.8. License](#18-license)
-  - [1.9. Authors and history](#19-authors-and-history)
-  - [1.10. Acknowledgments](#110-acknowledgments)
-  - [- Setup Prometheus Node Exporter on Kubernetes](#--setup-prometheus-node-exporter-on-kubernetes)
-  - [- Grafana Kubernetes prepared yamls](#--grafana-kubernetes-prepared-yamls)
+- [Gravitate-Health Monitor system](#gravitate-health-monitor-system)
+- [1. Table of contents](#1-table-of-contents)
+- [3. Introduction](#3-introduction)
+- [4. Kubernetes Deployment](#4-kubernetes-deployment)
+  - [4.1. Prerequisites](#41-prerequisites)
+  - [4.2. Prepare the environment](#42-prepare-the-environment)
+  - [4.3. Prometheus](#43-prometheus)
+    - [4.3.1. Service discovery](#431-service-discovery)
+  - [4.4. Grafana](#44-grafana)
+- [5. Usage](#5-usage)
+  - [5.1. Dashboards](#51-dashboards)
+- [6. Known issues and limitations](#6-known-issues-and-limitations)
+- [7. Getting help](#7-getting-help)
+- [8. Contributing](#8-contributing)
+- [9. License](#9-license)
+- [10. Authors and history](#10-authors-and-history)
+- [11. Acknowledgments](#11-acknowledgments)
+- [12. - Setup Prometheus Node Exporter on Kubernetes](#12---setup-prometheus-node-exporter-on-kubernetes)
+- [13. - Grafana Kubernetes prepared yamls](#13---grafana-kubernetes-prepared-yamls)
 
-
-1.2. Introduction
+3. Introduction
 ------------
 
 This repository contains the configuration and deployment files necessary to monitor a kubernetes cluster and deployments on top of the cluster, such as nodeJS apps, Mongo databases, Keycloak server, etc. The monitor system consists of a Grafana + Prometheus stack.
@@ -32,12 +33,12 @@ This readme will help the reader to deploy the system to a kubernetes cluster, b
 
 ![Monitor stack architecture](./docs/prometheus-grafana-stack.png "Monitor stack architecture")
 
-1.3. Kubernetes Deployment
+4. Kubernetes Deployment
 ------------
 
 Grafana and Prometheus offer their official Docker image which is ready to deploy and work for a local environment. For a k8s cluster, some considerations must be taken into account.
 
-### 1.3.1. Prerequisites
+### 4.1. Prerequisites
 
 The only prerequesites are a Kubernetes cluster and a gateway/reverse-proxy configured and with a working external url(domain name). The externally accsible url for the gateway will be referenced as `BASE_URL` from now on.
 
@@ -48,7 +49,7 @@ This gateway must recirect petitions with prefix `/grafana/` to grafana (removin
 
 Currently, the yaml files configure Prometheus to be accessible through a reverse proxy, and not through Kubectl port forwarding or an ingress object. To know how to do it, refer to [official kubernetes documentation](https://kubernetes.io/es/docs/home/)
 
-### 1.3.2. Prepare the environment
+### 4.2. Prepare the environment
 
 
 For Prometheus to be able to scrape information about the cluster or pods within other namespaces, the following steps must be taken:
@@ -67,7 +68,7 @@ kubectl create namespace monitoring
 kubectl create -f clusterRole.yaml
 ```
 
-### 1.3.3. Prometheus 
+### 4.3. Prometheus 
 
 Prometheus configs are externalized to config-maps to avoid needing to build the prometheus image when changing the config. To apply config changes, it is only needed to udpate config maps and restart prometheus pods to apply the new configuration.
 
@@ -90,7 +91,18 @@ After these steps, prometheus web GUI will be accessible through `{BASE_URL}/pro
 NOTE: To understand prometheus config that enables it to work behind a reverse proxy, take a look at the `--web.external-url` arg for the container specified at the [prometheus deployment](prometheus/prometheus-deployment.yaml)
 
 
-### 1.3.4. Grafana
+#### 4.3.1. Service discovery
+
+Prometheus config enables service discovery by reading annotations from services with no need for extra configuration to scrape a new endpoint. Services should include these annotations if they want to be scraped by prometheus, and sholud be included in the yaml file describing the service, in section `metadata.annotations`.:
+
+- prometheus.io/scrape: Only scrape services that have a value of `true`.
+- prometheus.io/path: If the metrics path is not `/metrics` override this.
+- prometheus.io/port: If the metrics are exposed on a different port to the service then set this appropriately.
+- prometheus.io/scheme: If the metrics endpoint is secured then you will need to set this to `https` & most likely set the `tls_config` of the scrape config.
+
+
+
+### 4.4. Grafana
 
 As happens with prometheus, grafana's configurations are also externailzed to yaml files. Grafana main configuration file is `grafana.ini` typically placed at `etc/grafana/grafana.ini`.
 
@@ -112,12 +124,12 @@ After these steps, grafana web GUI will be accessible through `{BASE_URL}/grafan
 NOTE: To understand grafana config that enables it to work behind a reverse proxy, take a look at the `server.root_url` config for the container specified at the [grafana-config-map.yaml](grafana/grafana-config-map.yaml)
 
 
-1.4. Usage
+5. Usage
 -----
 
 To use the monitor system, only access to the URLs and use it as you would normally use Grafana + Prometheus
 
-### 1.4.1. Dashboards
+### 5.1. Dashboards
 
 List of community dashbaords that are ready to use for our environment:
 
@@ -125,30 +137,30 @@ List of community dashbaords that are ready to use for our environment:
 - [NodeJS Application Dashboard](https://grafana.com/grafana/dashboards/11159)
 
 
-1.5. Known issues and limitations
+6. Known issues and limitations
 ----------------------------
 
-1.6. Getting help
+7. Getting help
 ------------
 
-1.7. Contributing
+8. Contributing
 ------------
 
-1.8. License
+9. License
 -------
 
-1.9. Authors and history
+10. Authors and history
 ---------------------------
 
-1.10. Acknowledgments
+11. Acknowledgments
 ---------------
 
 - [Setup Prometheus monitoring on kubernetes](https://devopscube.com/setup-prometheus-monitoring-on-kubernetes/)
 - [Setup Grafana on kubernetes](https://devopscube.com/setup-grafana-kubernetes/)
-- [Setup Prometheus Node Exporter on Kubernetes](https://devopscube.com/node-exporter-kubernetes/)
+12. - [Setup Prometheus Node Exporter on Kubernetes](https://devopscube.com/node-exporter-kubernetes/)
 ---
 Thanks [bibinwilson](https://github.com/bibinwilson) for this YAMLs
 - [Prometheus Kubernetes prepared yamls](https://github.com/bibinwilson/kubernetes-prometheus)
-- [Grafana Kubernetes prepared yamls](https://github.com/bibinwilson/kubernetes-grafana)
+13. - [Grafana Kubernetes prepared yamls](https://github.com/bibinwilson/kubernetes-grafana)
 ---
 - [Setting Up Alert Manager on Kubernetes](https://devopscube.com/alert-manager-kubernetes-guide/)
