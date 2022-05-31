@@ -10,7 +10,7 @@ metadata:
 spec:
   selector: 
     app: prometheus
-  type: NodePort  
+  type: ClusterIP  
   ports:
     - port: 9090
       targetPort: 9090 

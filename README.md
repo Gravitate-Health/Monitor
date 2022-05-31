@@ -1,18 +1,19 @@
-Gravitate-Health Monitor system
+1. Gravitate-Health Monitor system
 --------
 
-1. Table of contents
+2. Table of contents
 -----------------
 
-- [Gravitate-Health Monitor system](#gravitate-health-monitor-system)
-- [1. Table of contents](#1-table-of-contents)
+- [1. Gravitate-Health Monitor system](#1-gravitate-health-monitor-system)
+- [2. Table of contents](#2-table-of-contents)
 - [3. Introduction](#3-introduction)
 - [4. Kubernetes Deployment](#4-kubernetes-deployment)
   - [4.1. Prerequisites](#41-prerequisites)
   - [4.2. Prepare the environment](#42-prepare-the-environment)
   - [4.3. Prometheus](#43-prometheus)
     - [4.3.1. Service discovery](#431-service-discovery)
-  - [4.4. Grafana](#44-grafana)
+  - [4.4. Alert Manager](#44-alert-manager)
+  - [4.5. Grafana](#45-grafana)
 - [5. Usage](#5-usage)
   - [5.1. Dashboards](#51-dashboards)
 - [6. Known issues and limitations](#6-known-issues-and-limitations)
@@ -100,9 +101,25 @@ Prometheus config enables service discovery by reading annotations from services
 - prometheus.io/port: If the metrics are exposed on a different port to the service then set this appropriately.
 - prometheus.io/scheme: If the metrics endpoint is secured then you will need to set this to `https` & most likely set the `tls_config` of the scrape config.
 
+### 4.4. Alert Manager
+
+AlertManager is an open source alerting system taht works with Prometheus. Its service endpoint is already configured at [ Prometheus' config-map ](prometheus/prometheus-config-map.yaml) to send alerts to AlertManager. Alert rules are configured here and dumped to a file called `prometheus.rules`.
+
+Alert manager needs smarthost configuration to be able to send emails.
+
+1. Create the following resources:
+```bash
+kubectl create -f alertmanager/alert-manager-config-map.yaml
+kubectl create -f alertmanager/alert-manager-service.yaml
+kubectl create -f alertmanager/alert-manager-deployment.yaml
+kubectl create -f alertmanager/alert-template-config-map.yaml
+```
+
+After these steps, alert manager web GUI will be accessible through `{BASE_URL}/alertmanager/`.
 
 
-### 4.4. Grafana
+
+### 4.5. Grafana
 
 As happens with prometheus, grafana's configurations are also externailzed to yaml files. Grafana main configuration file is `grafana.ini` typically placed at `etc/grafana/grafana.ini`.
 
