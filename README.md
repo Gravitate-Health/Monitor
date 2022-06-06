@@ -22,8 +22,6 @@
 - [9. License](#9-license)
 - [10. Authors and history](#10-authors-and-history)
 - [11. Acknowledgments](#11-acknowledgments)
-- [12. - Setup Prometheus Node Exporter on Kubernetes](#12---setup-prometheus-node-exporter-on-kubernetes)
-- [13. - Grafana Kubernetes prepared yamls](#13---grafana-kubernetes-prepared-yamls)
 
 3. Introduction
 ------------
@@ -174,10 +172,16 @@ List of community dashbaords that are ready to use for our environment:
 
 - [Setup Prometheus monitoring on kubernetes](https://devopscube.com/setup-prometheus-monitoring-on-kubernetes/)
 - [Setup Grafana on kubernetes](https://devopscube.com/setup-grafana-kubernetes/)
-12. - [Setup Prometheus Node Exporter on Kubernetes](https://devopscube.com/node-exporter-kubernetes/)
+- [Setup Prometheus Node Exporter on Kubernetes](https://devopscube.com/node-exporter-kubernetes/)
+
 ---
+
 Thanks [bibinwilson](https://github.com/bibinwilson) for this YAMLs
 - [Prometheus Kubernetes prepared yamls](https://github.com/bibinwilson/kubernetes-prometheus)
-13. - [Grafana Kubernetes prepared yamls](https://github.com/bibinwilson/kubernetes-grafana)
+- [Grafana Kubernetes prepared yamls](https://github.com/bibinwilson/kubernetes-grafana)
+  
+- [Basic kubernetes alerts](https://gist.github.com/efossas/c0bba665469186621f89f7bd89b3f0a9#file-prometheus-yml)
+
 ---
+
 - [Setting Up Alert Manager on Kubernetes](https://devopscube.com/alert-manager-kubernetes-guide/)

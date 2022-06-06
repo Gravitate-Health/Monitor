@@ -9,15 +9,83 @@ metadata:
 data:
   prometheus.rules: |-
     groups:
-    - name: devopscube demo alert
+    - name: Instances
       rules:
-      - alert: High Pod Memory
-        expr: sum(container_memory_usage_bytes) > 1
-        for: 1m
-        labels:
-          severity: slack
-        annotations:
-          summary: High Memory Usage
+        - alert: InstanceDown
+          expr: up == 0
+          for: 5m
+          labels:
+            severity: page
+          annotations:
+            description: '{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes.'
+            summary: 'Instance {{ $labels.instance }} down'
+
+        - alert: PodStatus
+          expr: kube_pod_status_phase{phase="Failed"} > 0
+          for: 5m
+          labels:
+            severity: page
+          annotations:
+            description: '{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes.'
+            summary: 'Instance {{ $labels.instance }} down'
+
+        - alert: PodDown
+          expr: kube_pod_container_status_waiting_reason{reason=~"CrashLoopBackOff|ErrImagePull|ImagePullBackOff|CreateContainerConfigError|InvalidImageName|CreateContainerError"} > 0
+          for: 5m
+          labels:
+            severity: page
+          annotations:
+            description: '{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes.'
+            summary: 'Instance {{ $labels.instance }} down'
+
+    - name: Resources
+      rules:
+        - alert: CpuLoad
+          expr: node_load15 / (count without (cpu, mode) (node_cpu_seconds_total{mode="system"})) > 2
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "CPU load (instance {{ $labels.instance }})"
+            description: "CPU load (15m) is high\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+        - alert: OutOfMemory
+          expr: (node_memory_MemFree_bytes + node_memory_Cached_bytes + node_memory_Buffers_bytes) / node_memory_MemTotal_bytes * 100 < 10
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Out of memory (instance {{ $labels.instance }})"
+            description: "Node memory is filling up (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+        - alert: OutOfDiskSpace
+          expr: node_filesystem_free_bytes{mountpoint ="/rootfs"} / node_filesystem_size_bytes{mountpoint ="/rootfs"} * 100 < 10
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Out of disk space (instance {{ $labels.instance }})"
+            description: "Disk is almost full (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+    - name: Network
+      rules:
+        - alert: UnusualNetworkIn
+          expr: sum by (instance) (irate(node_network_receive_bytes_total[2m])) / 1024 / 1024 > 100
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Unusual network throughput in (instance {{ $labels.instance }})"
+            description: "Host network interfaces are probably receiving too much data (> 100 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+        - alert: UnusualNetworkOut
+          expr: sum by (instance) (irate(node_network_transmit_bytes_total[2m])) / 1024 / 1024 > 100
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Unusual network throughput out (instance {{ $labels.instance }})"
+            description: "Host network interfaces are probably sending too much data (> 100 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
   prometheus.yml: |-
     global:
       scrape_interval: 5s
