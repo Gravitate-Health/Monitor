@@ -108,10 +108,10 @@ Alert manager needs smarthost configuration to be able to send emails.
 
 1. Create the following resources:
 ```bash
-kubectl create -f alertmanager/alert-manager-config-map.yaml
-kubectl create -f alertmanager/alert-manager-service.yaml
-kubectl create -f alertmanager/alert-manager-deployment.yaml
-kubectl create -f alertmanager/alert-template-config-map.yaml
+kubectl create -f alertManager/alert-manager-config-map.yaml
+kubectl create -f alertManager/alert-manager-service.yaml
+kubectl create -f alertManager/alert-manager-deployment.yaml
+kubectl create -f alertManager/alert-template-config-map.yaml
 ```
 
 After these steps, alert manager web GUI will be accessible through `{BASE_URL}/alertmanager/`.
