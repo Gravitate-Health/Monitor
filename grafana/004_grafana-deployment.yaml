@@ -29,6 +29,10 @@ spec:
       labels:
         app: grafana
     spec:
+      securityContext:
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
       containers:
       - name: grafana
         image: grafana/grafana:latest
@@ -46,17 +50,18 @@ spec:
           - name: grafana-config
             mountPath: /etc/grafana/grafana.ini
             subPath: grafana.ini
-          - mountPath: /var/lib/grafana
-            name: grafana-storage
-          - mountPath: /etc/grafana/provisioning/datasources
-            name: grafana-datasources
+          - name: grafana-storage
+            mountPath: /var/lib/grafana
+          - name: grafana-datasources
+            mountPath: /etc/grafana/provisioning/datasources
             readOnly: false
       volumes:
         - name: grafana-config
           configMap:
             name: grafana-ini
         - name: grafana-storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: grafana-storage-pvc
         - name: grafana-datasources
           configMap:
               defaultMode: 420

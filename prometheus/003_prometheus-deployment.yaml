@@ -33,21 +33,23 @@ spec:
       containers:
         - name: prometheus
           image: prom/prometheus:v2.47.0
+          resources: {}
           args:
             - "--config.file=/etc/prometheus/prometheus.yml"
-            - "--web.external-url=https://gravitate-health.lst.tfo.upm.es/prometheus"
+            - --storage.tsdb.path='prometheus_data/
+            - "--web.external-url=https://fosps.gravitatehealth.eu/prometheus"
           ports:
             - containerPort: 9090
           volumeMounts:
             - name: prometheus-config-volume
               mountPath: /etc/prometheus/
             - name: prometheus-storage-volume
-              mountPath: /prometheus/
+              mountPath: /prometheus_data/
       volumes:
         - name: prometheus-config-volume
           configMap:
             defaultMode: 420
             name: prometheus-conf
-
         - name: prometheus-storage-volume
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: prometheus-storage-pvc
