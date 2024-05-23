@@ -8,6 +8,8 @@
 - [Gravitate Health Monitor](#gravitate-health-monitor)
   - [Table of contents](#table-of-contents)
   - [Introduction](#introduction)
+  - [Kubernetes Helm Deployment](#kubernetes-helm-deployment)
+- [DEPRECATED\_DEPLOYMENT](#deprecated_deployment)
   - [Kubernetes Deployment](#kubernetes-deployment)
     - [Prerequisites](#prerequisites)
     - [Prepare the environment](#prepare-the-environment)
@@ -32,6 +34,28 @@ This repository contains the configuration and deployment files necessary to mon
 This readme will help the reader to deploy the system to a kubernetes cluster, but also to understand the configuration and be able to edit/expand it.
 
 ![Monitor stack architecture](./docs/prometheus-grafana-stack.png "Monitor stack architecture")
+
+
+## Kubernetes Helm Deployment
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+# Create namespace and enable istio injection
+kubectl create namespace monitoring
+kubectl label namespace monitoring istio-injection=enabled
+
+helm install -f kubernetes/values.yaml prometheus-stack --namespace monitoring prometheus-community/kube-prometheus-stack
+```
+
+To upgrade the release:
+```bash
+helm upgrade -f kubernetes/values.yaml prometheus-stack --namespace monitoring prometheus-community/kube-prometheus-stack
+```
+
+---
+# DEPRECATED_DEPLOYMENT
 
 ---
 ## Kubernetes Deployment

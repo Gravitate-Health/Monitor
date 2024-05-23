@@ -1,0 +1,38 @@
+nameOverride: "monitoring"
+namespaceOverride: "monitoring"
+fullnameOverride: "monitoring"
+
+grafana:
+  persistence:
+    enabled: true
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+  grafana.ini:
+    server:
+      domain: https://gravitate-health.lst.tfo.upm.es
+      root_url: https://gravitate-health.lst.tfo.upm.es/grafana/
+      #root_url: "%(protocol)s://%(domain)s/grafana/"
+      serve_from_sub_path: true
+  ingress:
+    enabled: false
+    #enabled: true
+    #path: /grafana
+    #pathType: ImplementationSpecific
+
+
+prometheusOperator:
+  admissionWebhooks:
+    deployment:
+      livenessProbe:
+        enabled: false
+      readinessProbe:
+        enabled: false
+      
+prometheus:
+  prometheusSpec:
+    externalUrl: 'https://gravitate-health.lst.tfo.upm.es/prometheus/'
+    routePrefix: '/prometheus'
+
+alertmanager:
+  enabled: false

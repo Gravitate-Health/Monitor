@@ -26,21 +26,19 @@ spec:
     - match:
         - uri:
             prefix: /grafana
-      rewrite:
-        uri: "/"
+      #rewrite:
+      #  uri: "/"
       route:
         - destination:
-            host: grafana.monitoring.svc.cluster.local
+            host: prometheus-stack-grafana.monitoring.svc.cluster.local
             port:
-              number: 3000
+              number: 80
     - match:
         - uri:
             prefix: /prometheus
-      rewrite:
-        uri: "/"
       route:
         - destination:
-            host: prometheus.monitoring.svc.cluster.local
+            host: monitoring-prometheus.monitoring.svc.cluster.local
             port:
               number: 9090
       corsPolicy:

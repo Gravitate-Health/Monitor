@@ -14,6 +14,7 @@
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
+namespace: monitoring
 metadata:
   name: prometheus
 rules:
@@ -35,6 +36,7 @@ rules:
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
+namespace: monitoring
 metadata:
   name: prometheus
 roleRef:
