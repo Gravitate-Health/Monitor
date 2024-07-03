@@ -1,0 +1,52 @@
+grafana:
+  enabled: true
+  #env:
+    #GF_SERVER_ROOT_URL: "https://gravitate-health.lst.tfo.upm.es/grafana/"
+  grafana.ini:
+    server:
+      domain: gravitate-health.lst.tfo.upm.es
+      root_url: https://gravitate-health.lst.tfo.upm.es/grafana
+      serve_from_sub_path: true
+      enforce_domain: true
+    auth:
+      basicAuth:
+        enabled: true
+    datasources:
+      Loki:
+        type: loki
+        access: proxy
+        url: http://{{ .Release.Name }}-loki.monitoring.svc.cluster.local:3100
+        basicAuth: false
+      Prometheus:
+        type: prometheus
+        access: proxy
+        url: http://{{ .Release.Name }}-prometheus-server.monitoring.svc.cluster.local
+        basicAuth: false
+
+
+loki: 
+  enabled: true
+  isDefault: true
+  ruler:
+    basic_auth_username: admin
+    basic_auth_password: admin
+  common:
+    path_prefix: /loki
+  server:
+    http_listen_port: 3100
+    grpc_listen_port: 9091
+    http_path_prefix: /loki
+  ingester:
+    lifecycles:
+      - name: default
+        max_retries: 3
+  storage:
+    boltdb:
+      directory: /var/loki/storage/
+
+promtail:
+  enabled: true
+  readinessProbe: {}
+
+prometheus:
+  enabled: true

@@ -46,12 +46,12 @@ helm repo update
 kubectl create namespace monitoring
 kubectl label namespace monitoring istio-injection=enabled
 
-helm install -f kubernetes/values.yaml prometheus-stack --namespace monitoring prometheus-community/kube-prometheus-stack
+helm install --namespace monitoring -f monitor-values.yaml loki grafana/loki-stack
 ```
 
 To upgrade the release:
 ```bash
-helm upgrade -f kubernetes/values.yaml prometheus-stack --namespace monitoring prometheus-community/kube-prometheus-stack
+helm upgrade --namespace monitoring -f kubernetes/monitor-values.yaml loki prometheus-community/kube-prometheus-stack
 ```
 
 ---
