@@ -1,0 +1,12 @@
+alertmanager:
+  enabled: false
+persistentVolume:
+  enabled: true
+  size: 10Gi
+server:
+  baseUrl: https://odin.lst.tfo.upm.es/prometheus
+  extraArgs:
+    web.external-url: https://odin.lst.tfo.upm.es/prometheus
+    web.route-prefix: "/"
+  extraFlags:
+    - web.enable-lifecycle

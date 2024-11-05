@@ -9,14 +9,14 @@
   - [Table of contents](#table-of-contents)
   - [Introduction](#introduction)
   - [Kubernetes Helm Deployment](#kubernetes-helm-deployment)
-- [DEPRECATED\_DEPLOYMENT](#deprecated_deployment)
-  - [Kubernetes Deployment](#kubernetes-deployment)
-    - [Prerequisites](#prerequisites)
-    - [Prepare the environment](#prepare-the-environment)
-    - [Prometheus](#prometheus)
+  - [DEPRECATED\_DEPLOYMENT](#deprecated_deployment)
+    - [Kubernetes Deployment](#kubernetes-deployment)
+      - [Prerequisites](#prerequisites)
+      - [Prepare the environment](#prepare-the-environment)
+      - [Prometheus](#prometheus)
       - [Service discovery](#service-discovery)
-    - [Alert Manager](#alert-manager)
-    - [Grafana](#grafana)
+      - [Alert Manager](#alert-manager)
+      - [Grafana](#grafana)
   - [Usage](#usage)
     - [Dashboards](#dashboards)
   - [Known issues and limitations](#known-issues-and-limitations)
@@ -39,30 +39,27 @@ This readme will help the reader to deploy the system to a kubernetes cluster, b
 ## Kubernetes Helm Deployment
 
 ```bash
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
-
 # Create namespace and enable istio injection
 kubectl create namespace monitoring
 kubectl label namespace monitoring istio-injection=enabled
 
-helm install --namespace monitoring -f monitor-values.yaml loki grafana/loki-stack
-```
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
 
-To upgrade the release:
-```bash
-helm upgrade --namespace monitoring -f kubernetes/monitor-values.yaml loki prometheus-community/kube-prometheus-stack
+helm install --namespace=monitoring --values grafana/values.yaml grafana grafana/grafana
+helm install --namespace=monitoring --values prometheus/values.yaml prometheus prometheus-community/prometheus
+helm install --namespace=monitoring --values loki/values.yaml loki grafana/loki
 ```
 
 ---
-# DEPRECATED_DEPLOYMENT
+## DEPRECATED_DEPLOYMENT
 
----
-## Kubernetes Deployment
+### Kubernetes Deployment
 
 Grafana and Prometheus offer their official Docker image which is ready to deploy and work for a local environment. For a k8s cluster, some considerations must be taken into account.
 
-### Prerequisites
+#### Prerequisites
 
 The only prerequesites are a Kubernetes cluster and a gateway/reverse-proxy configured and with a working external url(domain name). The externally accsible url for the gateway will be referenced as `BASE_URL` from now on.
 
@@ -73,7 +70,7 @@ This gateway must recirect petitions with prefix `/grafana/` to grafana (removin
 
 Currently, the yaml files configure Prometheus to be accessible through a reverse proxy, and not through Kubectl port forwarding or an ingress object. To know how to do it, refer to [official kubernetes documentation](https://kubernetes.io/es/docs/home/)
 
-### Prepare the environment
+#### Prepare the environment
 
 
 For Prometheus to be able to scrape information about the cluster or pods within other namespaces, the following steps must be taken:
@@ -92,7 +89,7 @@ kubectl create namespace monitoring
 kubectl create -f clusterRole.yaml
 ```
 
-### Prometheus 
+#### Prometheus 
 
 Prometheus configs are externalized to config-maps to avoid needing to build the prometheus image when changing the config. To apply config changes, it is only needed to udpate config maps and restart prometheus pods to apply the new configuration.
 
@@ -124,7 +121,7 @@ Prometheus config enables service discovery by reading annotations from services
 - prometheus.io/port: If the metrics are exposed on a different port to the service then set this appropriately.
 - prometheus.io/scheme: If the metrics endpoint is secured then you will need to set this to `https` & most likely set the `tls_config` of the scrape config.
 
-### Alert Manager
+#### Alert Manager
 
 AlertManager is an open source alerting system taht works with Prometheus. Its service endpoint is already configured at [ Prometheus' config-map ](prometheus/prometheus-config-map.yaml) to send alerts to AlertManager. Alert rules are configured here and dumped to a file called `prometheus.rules`.
 
@@ -142,7 +139,7 @@ After these steps, alert manager web GUI will be accessible through `{BASE_URL}/
 
 
 
-### Grafana
+#### Grafana
 
 As happens with prometheus, grafana's configurations are also externailzed to yaml files. Grafana main configuration file is `grafana.ini` typically placed at `etc/grafana/grafana.ini`.
 

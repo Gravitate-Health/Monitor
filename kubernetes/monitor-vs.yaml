@@ -30,7 +30,7 @@ spec:
       #  uri: "/"
       route:
         - destination:
-            host: loki-grafana.monitoring.svc.cluster.local
+            host: grafana.monitoring.svc.cluster.local
             port:
               number: 80
     - match:
@@ -44,9 +44,11 @@ spec:
     - match:
         - uri:
             prefix: /prometheus
+      #rewrite:
+      #  uri: "/"
       route:
         - destination:
-            host: loki-prometheus-server.monitoring.svc.cluster.local
+            host: prometheus-server.monitoring.svc.cluster.local
             port:
               number: 80
       corsPolicy:

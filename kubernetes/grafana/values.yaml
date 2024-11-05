@@ -1,0 +1,36 @@
+
+persistence:
+  enabled: true
+  size: 10Gi
+env:
+  GF_SERVER_ROOT_URL: "https://gravitate-health.lst.tfo.upm.es/grafana/"
+grafana.ini:
+  log:
+    mode: console
+    level: debug
+  server:
+    domain: gravitate-health.lst.tfo.upm.es
+    root_url: https://gravitate-health.lst.tfo.upm.es/grafana
+    serve_from_sub_path: true
+    enforce_domain: true
+  auth:
+    basicAuth:
+      enabled: true
+datasources: 
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      url: http://prometheus-server
+      access: proxy
+      isDefault: true
+
+    - name: Loki
+      type: loki
+      url: http://loki-gateway
+      access: proxy
+      isDefault: false    
+
+plugins:
+  #- yesoreyeram-infinity-datasource
