@@ -50,6 +50,12 @@ helm repo update
 helm install --namespace=monitoring --values grafana/values.yaml grafana grafana/grafana
 helm install --namespace=monitoring --values prometheus/values.yaml prometheus prometheus-community/prometheus
 helm install --namespace=monitoring --values loki/values.yaml loki grafana/loki
+helm install --namespace=monitoring --values blackbox-exporter/values.yaml prometheus-blackbox-exporter prometheus-community/prometheus-blackbox-exporter
+
+## This only applies if a path prefix was set to Prometheus:
+## Prometheus has a bug when setting a path prefix, as the chart is not correcting the path for the readiness probe, so patch it with this command (if your path prefix is /prometheus):
+kubectl patch deployment --namespace=monitoring prometheus-server --type=json -p '[{"op":"replace","path":"/spec/template/spec/containers/1/readinessProbe/httpGet/path","value":"/prometheus/-/healthy"}]'
+
 ```
 
 ---
