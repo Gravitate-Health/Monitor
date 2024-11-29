@@ -51,13 +51,3 @@ spec:
             host: prometheus-server.monitoring.svc.cluster.local
             port:
               number: 80
-      corsPolicy:
-        allowMethods:
-          - GET
-          - POST
-          - OPTIONS
-        allowOrigins:
-          - exact: "*"
-        allowHeaders:
-          - "content-type"
-          - "Accept"

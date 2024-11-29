@@ -4,12 +4,16 @@ persistentVolume:
   enabled: true
   size: 10Gi
 server:
-  baseUrl: https://gravitate-health.lst.tfo.upm.es/prometheus
-  extraArgs:
-    #web.external-url: "https://gravitate-health.lst.tfo.upm.es/prometheus/"
-    #web.route-prefix: "/prometheus"
+  #baseUrl: "https://gravitate-health.lst.tfo.upm.es/prometheus"
+  #prefixUrl: "https://gravitate-health.lst.tfo.upm.es/prometheus"
+  #extraArgs:
   extraFlags:
     - web.enable-lifecycle
+    - web.route-prefix=/prometheus
+    - web.external-url=https://gravitate-health.lst.tfo.upm.es/prometheus
+configmapReload:
+  prometheus:
+    enabled: false
 
 extraScrapeConfigs: |
     - job_name: 'blackbox'

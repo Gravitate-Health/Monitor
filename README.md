@@ -54,7 +54,11 @@ helm install --namespace=monitoring --values blackbox-exporter/values.yaml prome
 
 ## This only applies if a path prefix was set to Prometheus:
 ## Prometheus has a bug when setting a path prefix, as the chart is not correcting the path for the readiness probe, so patch it with this command (if your path prefix is /prometheus):
-kubectl patch deployment --namespace=monitoring prometheus-server --type=json -p '[{"op":"replace","path":"/spec/template/spec/containers/1/readinessProbe/httpGet/path","value":"/prometheus/-/healthy"}]'
+kubectl patch deployment --namespace=monitoring prometheus-server \
+--type=json \
+-p '[
+{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/prometheus/-/healthy"},
+{"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe/httpGet/path","value":"/prometheus/-/healthy"}]'
 
 ```
 
