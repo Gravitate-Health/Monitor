@@ -47,18 +47,15 @@ helm repo add grafana https://grafana.github.io/helm-charts
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
-helm install --namespace=monitoring --values grafana/values.yaml grafana grafana/grafana
-helm install --namespace=monitoring --values prometheus/values.yaml prometheus prometheus-community/prometheus
-helm install --namespace=monitoring --values loki/values.yaml loki grafana/loki
-helm install --namespace=monitoring --values blackbox-exporter/values.yaml prometheus-blackbox-exporter prometheus-community/prometheus-blackbox-exporter
+helm upgrade --namespace=monitoring --install --values grafana/values.yaml grafana grafana/grafana
+helm upgrade --namespace=monitoring --install --values prometheus/values.yaml prometheus prometheus-community/prometheus
+helm upgrade --namespace=monitoring --install --values loki/values.yaml loki grafana/loki
+helm upgrade --namespace=monitoring --install --values promtail/values.yaml promtail grafana/promtail
+helm upgrade --namespace=monitoring --install --values blackbox-exporter/values.yaml prometheus-blackbox-exporter prometheus-community/prometheus-blackbox-exporter
 
 ## This only applies if a path prefix was set to Prometheus:
 ## Prometheus has a bug when setting a path prefix, as the chart is not correcting the path for the readiness probe, so patch it with this command (if your path prefix is /prometheus):
-kubectl patch deployment --namespace=monitoring prometheus-server \
---type=json \
--p '[
-{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/prometheus/-/healthy"},
-{"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe/httpGet/path","value":"/prometheus/-/healthy"}]'
+kubectl patch deployment --namespace=monitoring prometheus-server --type=json -p '[{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/prometheus/-/healthy"},{"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe/httpGet/path","value":"/prometheus/-/healthy"}]'
 
 ```
 

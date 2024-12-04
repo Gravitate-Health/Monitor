@@ -9,6 +9,7 @@ server:
   #extraArgs:
   extraFlags:
     - web.enable-lifecycle
+    - web.enable-admin-api
     - web.route-prefix=/prometheus
     - web.external-url=https://gravitate-health.lst.tfo.upm.es/prometheus
 configmapReload:
