@@ -1,0 +1,46 @@
+alertmanager:
+  enabled: false
+persistentVolume:
+  enabled: true
+  size: 10Gi
+server:
+  #baseUrl: "https://fosps.gravitatehealth.eu/prometheus"
+  #prefixUrl: "https://fosps.gravitatehealth.eu/prometheus"
+  #extraArgs:
+  extraFlags:
+    - web.enable-lifecycle
+    - web.enable-admin-api
+    - web.route-prefix=/prometheus
+    - web.external-url=https://fosps.gravitatehealth.eu/prometheus
+configmapReload:
+  prometheus:
+    enabled: false
+
+extraScrapeConfigs: |
+    - job_name: 'blackbox'
+      metrics_path: 'probe'
+      params:
+        module: [http_2xx]  # Look for a HTTP 200 response.
+      tls_config:
+        insecure_skip_verify: true
+      static_configs:
+        - targets:
+          - https://sandbox.hl7europe.eu
+          - https://sandbox.hl7europe.eu/laboratory
+          - https://sandbox.hl7europe.eu/unicom
+          - https://sandbox.hl7europe.eu/baseserver
+          - https://sandbox.hl7europe.eu/flute
+          - https://sandbox.hl7europe.eu/idea4rc
+          - https://sandbox.hl7europe.eu/gh-epi-creator
+          - https://sandbox.hl7europe.eu/ig-uploader-api/
+          - https://sandbox.hl7europe.eu/gravitate-health
+          # targets here
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: "prometheus-blackbox-exporter:9115"  # Blackbox exporter.
+        - target_label: region
+          replacement: "local"

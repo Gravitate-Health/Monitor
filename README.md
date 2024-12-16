@@ -47,6 +47,7 @@ helm repo add grafana https://grafana.github.io/helm-charts
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
+kubectl create configmap --namespace=monitoring grafana-dashboards-gh --from-file=./grafana/dashboards/
 helm upgrade --namespace=monitoring --install --values grafana/values.yaml grafana grafana/grafana
 helm upgrade --namespace=monitoring --install --values prometheus/values.yaml prometheus prometheus-community/prometheus
 helm upgrade --namespace=monitoring --install --values loki/values.yaml loki grafana/loki
