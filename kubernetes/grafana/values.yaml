@@ -4,6 +4,7 @@ persistence:
   size: 10Gi
 env:
   GF_SERVER_ROOT_URL: "https://gravitate-health.lst.tfo.upm.es/grafana/"
+envFromSecret: grafana-email
 grafana.ini:
   log:
     mode: console
@@ -16,6 +17,14 @@ grafana.ini:
   auth:
     basicAuth:
       enabled: true
+  smtp:
+    enabled: true
+    host: smtp.lst.tfo.upm.es:465
+    user: ${FROM_ADDRESS}
+# If the password contains # or ; you have to wrap it with triple quotes. Ex """#password;"""
+    password: ${PASSWORD}
+    from_address: ${FROM_ADDRESS}
+    from_name: Gravitate-Health Grafana development
 datasources: 
   datasources.yaml:
     apiVersion: 1
