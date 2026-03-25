@@ -2,238 +2,534 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
----
-## Table of contents
-
-- [Gravitate Health Monitor](#gravitate-health-monitor)
-  - [Table of contents](#table-of-contents)
-  - [Introduction](#introduction)
-  - [Kubernetes Helm Deployment](#kubernetes-helm-deployment)
-  - [DEPRECATED\_DEPLOYMENT](#deprecated_deployment)
-    - [Kubernetes Deployment](#kubernetes-deployment)
-      - [Prerequisites](#prerequisites)
-      - [Prepare the environment](#prepare-the-environment)
-      - [Prometheus](#prometheus)
-      - [Service discovery](#service-discovery)
-      - [Alert Manager](#alert-manager)
-      - [Grafana](#grafana)
-  - [Usage](#usage)
-    - [Dashboards](#dashboards)
-  - [Known issues and limitations](#known-issues-and-limitations)
-  - [Getting help](#getting-help)
-  - [Contributing](#contributing)
-  - [License](#license)
-  - [Authors and history](#authors-and-history)
-  - [Acknowledgments](#acknowledgments)
+A complete, Helm-based monitoring stack for Kubernetes clusters featuring Prometheus, Grafana, Loki, and Promtail. Designed for containerized applications with pre-configured dashboards, log aggregation, and multi-environment support.
 
 ---
-## Introduction
 
-This repository contains the configuration and deployment files necessary to monitor a kubernetes cluster and deployments on top of the cluster, such as nodeJS apps, Mongo databases, Keycloak server, etc. The monitor system consists of a Grafana + Prometheus stack.
+## Table of Contents
 
-This readme will help the reader to deploy the system to a kubernetes cluster, but also to understand the configuration and be able to edit/expand it.
+- [TLDR / Quickstart](#tldr--quickstart)
+- [Architecture Overview](#architecture-overview)
+- [Repository Structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration Guide](#configuration-guide)
+- [Advanced Customization](#advanced-customization)
+- [Verification & Post-Deployment](#verification--post-deployment)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
-![Monitor stack architecture](./docs/prometheus-grafana-stack.png "Monitor stack architecture")
+---
 
+## TLDR / Quickstart
 
-## Kubernetes Helm Deployment
+Deploy the complete monitoring stack in ~5 minutes:
 
 ```bash
-# Prerequisites (only once)
+# 1. Create namespace and setup (one-time)
 kubectl create namespace monitoring
 kubectl label namespace monitoring istio-injection=enabled --overwrite
 
-# Required by Grafana values
-kubectl apply -f kubernetes/grafana/grafana-email-secret.yaml
-kubectl create configmap --namespace=monitoring grafana-dashboards-gh --from-file=./kubernetes/grafana/dashboards/ --dry-run=client -o yaml | kubectl apply -f -
+# 2. Add secrets and dashboards
+kubectl apply -f k8s/secrets/grafana-email-secret.yaml
+kubectl create configmap -n monitoring grafana-dashboards-gh --from-file=./k8s/dashboards/ --dry-run=client -o yaml | kubectl apply -f -
 
-# Preview and deploy (default environment)
-helmfile --environment default diff
-helmfile --environment default sync
-
-# Deploy production environment values
-helmfile --environment prod sync
-
-## This only applies if a path prefix was set to Prometheus:
-## Prometheus has a bug when setting a path prefix, as the chart is not correcting the path for the readiness probe, so patch it with this command (if your path prefix is /prometheus):
-kubectl patch deployment --namespace=monitoring prometheus-server --type=json -p '[{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/prometheus/-/healthy"},{"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe/httpGet/path","value":"/prometheus/-/healthy"}]'
-
+# 3. Deploy with your base URL
+helmfile sync --state-values-set baseUrl=https://your-domain.example.com
 ```
 
-`helmfile.yaml` deploys Grafana, Prometheus, Loki, Promtail, Blackbox Exporter, and the Istio VirtualService from the local chart in `kubernetes/charts/monitor-routing`.
+**That's it!** Access Grafana at `https://your-domain.example.com/grafana` (default credentials: admin/admin, change immediately).
 
 ---
-## DEPRECATED_DEPLOYMENT
 
-### Kubernetes Deployment
+## Architecture Overview
 
-Grafana and Prometheus offer their official Docker image which is ready to deploy and work for a local environment. For a k8s cluster, some considerations must be taken into account.
+This stack provides comprehensive monitoring across three layers:
 
-#### Prerequisites
+```
+┌─────────────────────────────────────────────────────┐
+│           Grafana (Visualization)                   │
+│  • Pre-built dashboards for logs & metrics          │
+│  • SMTP-enabled alerting                            │
+│  • Multi-datasource support                         │
+└────────────┬──────────────────┬──────────────────────┘
+             │                  │
+      ┌──────▼─────┐      ┌─────▼──────┐
+      │ Prometheus │      │    Loki    │
+      │ (Metrics)  │      │  (Logs)    │
+      │ 10Gi store │      │ 50Gi store │
+      └──────┬─────┘      └─────┬──────┘
+             │                  │
+      ┌──────▼──────┐    ┌──────▼──────┐
+      │  Scrape     │    │  Promtail   │
+      │  Targets    │    │  (Collector)│
+      │  + Blackbox │    │             │
+      └─────────────┘    └─────────────┘
+```
 
-The only prerequesites are a Kubernetes cluster and a gateway/reverse-proxy configured and with a working external url(domain name). The externally accsible url for the gateway will be referenced as `BASE_URL` from now on.
+**Key Components:**
+- **Prometheus**: Scrapes metrics from cluster & external targets (HTTP/ICMP probes via Blackbox Exporter)
+- **Loki**: Aggregates container logs from all namespaces via Promtail DaemonSet
+- **Grafana**: Unified dashboard combining metrics and logs with email alerting
+- **VirtualService**: Istio-based routing to expose all services via a single gateway at `/grafana`, `/prometheus`, `/loki` paths
 
-This gateway must recirect petitions with prefix `/grafana/` to grafana (removing the prefix), and petitions with prefix `/prometheus/` to prometheus (NOT removing the prefix):
+---
 
-- `{BASE_URL}/grafana/foo` will be redirected to grafana as `{grafana-url}/foo`
-- `{BASE_URL}/prometheus/foo` will be redirected to prometheus as `{prometheus-url}/prometheus/foo`
+## Repository Structure
 
-Currently, the yaml files configure Prometheus to be accessible through a reverse proxy, and not through Kubectl port forwarding or an ingress object. To know how to do it, refer to [official kubernetes documentation](https://kubernetes.io/es/docs/home/)
+```
+.
+├── helmfile.yaml                 # Main deployment orchestration
+├── helm/
+│   ├── values/                   # Helm chart values (templated & static)
+│   │   ├── prometheus.yaml.gotmpl      # Prometheus config + external URL
+│   │   ├── grafana.yaml.gotmpl         # Grafana config + SMTP + dashboards
+│   │   ├── loki.yaml                   # Loki SingleBinary mode (filesystem)
+│   │   ├── promtail.yaml               # Log collector config
+│   │   └── blackbox-exporter.yaml      # HTTP/ICMP probe modules
+│   └── charts/
+│       └── monitor-routing/            # Local Helm chart for Istio VirtualService
+│           ├── Chart.yaml
+│           ├── values.yaml
+│           └── templates/virtualservice.yaml
+├── k8s/
+│   ├── secrets/
+│   │   └── grafana-email-secret.yaml   # SMTP credentials (apply manually)
+│   └── dashboards/
+│       ├── gh-logs.json                # Log aggregation dashboard
+│       └── gh-monit.json               # gh_monit metrics dashboard
+├── docs/
+│   └── prometheus-grafana-stack.png    # Architecture diagram
+├── deprecated_deployment/              # Legacy (non-Helm) configs - ignored
+└── README.md                           # This file
+```
 
-#### Prepare the environment
+**Key Design Decisions:**
+- `.gotmpl` files use **Go templating** to parameterize `baseUrl` across multiple services
+- **No environment files**: Single configuration set, parameterized via `--state-values-set`
+- **Local Helm chart**: `monitor-routing` packages Istio VirtualService; avoids raw YAML manifests
+- **Filesystem storage**: Loki & Prometheus store data in cluster volumes (not cloud backends)
 
+---
 
-For Prometheus to be able to scrape information about the cluster or pods within other namespaces, the following steps must be taken:
+## Prerequisites
 
-1. Create the `monitoring` namespace:
+1. **Kubernetes cluster** (v1.19+) with RBAC enabled
+2. **Helm 3.x** installed locally
+3. **Helmfile** installed ([installation guide](https://github.com/roboll/helmfile#installation))
+4. **Istio** installed with:
+   - Gateway `default/gh-gateway` configured in namespace where this is deployed
+   - Namespace has `istio-injection=enabled` label
+5. **kubectl** access to the cluster
+6. **Domain name** pointing to your Istio ingress (for external access)
+7. **SMTP server** details (for Grafana email alerts)
+
+---
+
+## Installation
+
+### Step 1: Prepare Kubernetes Namespace
 
 ```bash
+# Create monitoring namespace
 kubectl create namespace monitoring
+
+# Enable Istio injection (required for VirtualService routing)
+kubectl label namespace monitoring istio-injection=enabled --overwrite
+
+# Verify Istio gateway exists
+kubectl get gateway -n default  # Confirm "gh-gateway" is listed
 ```
 
-**NOTE: From now on, be sure to deploy everything on the `monitoring` namespace. All yamls files have the `namespace` directive, so if you wish to use anothe namespace, change it from the files.**
+### Step 2: Configure Secrets
 
-2. Deploy the [cluster role](./clusterRole.yaml), which contains a RBAC role that enables Prometheus to get and list nodes, services, endpoints and pods from other namespaces.
-   
-```bash
-kubectl create -f clusterRole.yaml
+Edit [k8s/secrets/grafana-email-secret.yaml](k8s/secrets/grafana-email-secret.yaml) with your SMTP credentials:
+
+```yaml
+stringData:
+  GF_SMTP_FROM_ADDRESS: your-email@example.com
+  GF_SMTP_PASSWORD: your-smtp-password   # Can be plain text or use external secret management
 ```
 
-#### Prometheus 
-
-Prometheus configs are externalized to config-maps to avoid needing to build the prometheus image when changing the config. To apply config changes, it is only needed to udpate config maps and restart prometheus pods to apply the new configuration.
-
-Prometheus bases its configuration on a file named `prometheus.yml`, typically located at `/etc/prometheus/prometheus.yml`.
-
-Steps to deploy:
-
-1. Write your own configuration (discovery config and alert rules) to [prometheus-config-map.yaml](prometheus/prometheus-config-map.yaml)
-
-2. Create the following resources:
+Apply the secret:
 
 ```bash
-kubectl create -f prometheus/prometheus-config-map.yaml
-kubectl create -f prometheus/prometheus-service.yaml
-kubectl create -f prometheus/prometheus-deployment.yaml
+kubectl apply -f k8s/secrets/grafana-email-secret.yaml
 ```
 
-After these steps, prometheus web GUI will be accessible through `{BASE_URL}/prometheus/`.
+**Alternative: Pass secrets via CLI** (see [Advanced Customization](#passing-secrets-via-cli))
 
-NOTE: To understand prometheus config that enables it to work behind a reverse proxy, take a look at the `--web.external-url` arg for the container specified at the [prometheus deployment](prometheus/prometheus-deployment.yaml)
+### Step 3: Create Dashboard ConfigMap
 
-
-#### Service discovery
-
-Prometheus config enables service discovery by reading annotations from services with no need for extra configuration to scrape a new endpoint. Services should include these annotations if they want to be scraped by prometheus, and sholud be included in the yaml file describing the service, in section `metadata.annotations`.:
-
-- prometheus.io/scrape: Only scrape services that have a value of `true`.
-- prometheus.io/path: If the metrics path is not `/metrics` override this.
-- prometheus.io/port: If the metrics are exposed on a different port to the service then set this appropriately.
-- prometheus.io/scheme: If the metrics endpoint is secured then you will need to set this to `https` & most likely set the `tls_config` of the scrape config.
-
-#### Alert Manager
-
-AlertManager is an open source alerting system taht works with Prometheus. Its service endpoint is already configured at [ Prometheus' config-map ](prometheus/prometheus-config-map.yaml) to send alerts to AlertManager. Alert rules are configured here and dumped to a file called `prometheus.rules`.
-
-Alert manager needs smarthost configuration to be able to send emails.
-
-1. Create the following resources:
-```bash
-kubectl create -f alertManager/alert-manager-config-map.yaml
-kubectl create -f alertManager/alert-manager-service.yaml
-kubectl create -f alertManager/alert-manager-deployment.yaml
-kubectl create -f alertManager/alert-template-config-map.yaml
-```
-
-After these steps, alert manager web GUI will be accessible through `{BASE_URL}/alertmanager/`.
-
-
-
-#### Grafana
-
-As happens with prometheus, grafana's configurations are also externailzed to yaml files. Grafana main configuration file is `grafana.ini` typically placed at `etc/grafana/grafana.ini`.
-
-Steps to deploy:
-
-1. Define the datasources at [grafana-datasource-config.yaml](grafana/grafana-datasource-config.yaml).
-2. Configure grafana through [grafana-config-map.yaml](grafana/grafana-config-map.yaml).
-3. Create the following resources:
+Grafana requires dashboards to be mounted as a ConfigMap:
 
 ```bash
-kubectl create -f grafana/grafana-config-map.yaml
-kubectl create -f grafana/grafana-datasource-config.yaml
-kubectl create -f grafana/grafana-service.yaml
-kubectl create -f grafana/grafana-deployment.yaml
+kubectl create configmap \
+  -n monitoring \
+  grafana-dashboards-gh \
+  --from-file=./k8s/dashboards/ \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-After these steps, grafana web GUI will be accessible through `{BASE_URL}/grafana/`.
+### Step 4: Deploy via Helmfile
 
-NOTE: To understand grafana config that enables it to work behind a reverse proxy, take a look at the `server.root_url` config for the container specified at the [grafana-config-map.yaml](grafana/grafana-config-map.yaml)
+**Dry-run first** (recommended):
 
+```bash
+helmfile diff --state-values-set baseUrl=https://your-domain.example.com
+```
 
----
-## Usage
+**Deploy:**
 
-To use the monitor system, only access to the URLs and use it as you would normally use Grafana + Prometheus
+```bash
+helmfile sync --state-values-set baseUrl=https://your-domain.example.com
+```
 
-### Dashboards
+Monitor the rollout:
 
-List of community dashbaords that are ready to use for our environment:
-
-- [nodejs app in kubernetes. Credit: elessar-ch](https://gist.github.com/elessar-ch/42f0eb278aedd27d3b20f4ea490902c7#file-nodejs-kubernetes-grafana-dashboard-json)
-- [NodeJS Application Dashboard](https://grafana.com/grafana/dashboards/11159)
-
-
----
-## Known issues and limitations
-
----
-## Getting help
+```bash
+kubectl rollout status deployment/grafana -n monitoring
+kubectl rollout status deployment/prometheus-server -n monitoring
+kubectl rollout status statefulset/loki -n monitoring
+```
 
 ---
-## Contributing
+
+## Configuration Guide
+
+### Changing the Target Namespace
+
+By default, all components deploy to the `monitoring` namespace. To use a different namespace:
+
+```bash
+# Option 1: Edit helmfile.yaml directly
+# Change "namespace: monitoring" to your desired namespace in each release
+
+# Option 2: Override via environment (not recommended)
+export MONITORING_NAMESPACE=my-monitoring
+sed -i "s/namespace: monitoring/namespace: $MONITORING_NAMESPACE/g" helmfile.yaml
+helmfile sync --state-values-set baseUrl=...
+```
+
+**Note**: Ensure your custom namespace has `istio-injection=enabled` label.
+
+### Excluding Specific Services from Deployment
+
+Use Helmfile release filters. For example, to skip **Loki** (logs only, keep metrics):
+
+```bash
+helmfile sync \
+  --state-values-set baseUrl=https://your-domain.example.com \
+  --selector name!=loki \
+  --selector name!=promtail
+```
+
+**Available releases to filter:**
+- `monitor-routing` (Istio VirtualService)
+- `prometheus` (metrics)
+- `loki` (log aggregation backend)
+- `promtail` (log collector daemon)
+- `prometheus-blackbox-exporter` (external endpoint prober)
+- `grafana` (dashboard UI)
+
+**Example: Metrics-only setup** (skip Loki/Promtail):
+
+```bash
+helmfile sync --state-values-set baseUrl=... \
+  --selector name=prometheus \
+  --selector name=grafana \
+  --selector name=prometheus-blackbox-exporter \
+  --selector name=monitor-routing
+```
+
+### Modifying Values
+
+#### Update Prometheus Scrape Config
+
+Edit [helm/values/prometheus.yaml.gotmpl](helm/values/prometheus.yaml.gotmpl) to add custom `extraScrapeConfigs` or modify Blackbox probe targets.
+
+#### Change Storage Sizes
+
+```bash
+# Override Prometheus PVC size (default 10Gi)
+helmfile sync --state-values-set 'prometheus.persistentVolume.size=20Gi' ...
+
+# Override Loki PVC size (default 50Gi)
+helmfile sync --state-values-set 'loki.singleBinary.persistence.size=100Gi' ...
+```
+
+#### Disable Alertmanager
+
+Edit [helm/values/prometheus.yaml.gotmpl](helm/values/prometheus.yaml.gotmpl):
+
+```yaml
+alertmanager:
+  enabled: false  # Already disabled by default
+```
+
+#### Modify VirtualService Routing Paths
+
+Edit [helm/charts/monitor-routing/values.yaml](helm/charts/monitor-routing/values.yaml):
+
+```yaml
+routes:
+  grafana:
+    prefix: /grafana        # Change to /monitoring/grafana
+    host: grafana.monitoring.svc.cluster.local
+    port: 80
+```
 
 ---
+
+## Advanced Customization
+
+### Passing Secrets via CLI (Avoiding Files)
+
+Instead of storing secrets in `k8s/secrets/grafana-email-secret.yaml`, pass them as Helm values:
+
+```bash
+helmfile sync --state-values-set baseUrl=https://your-domain.com \
+  --state-values-set 'grafana.env.GF_SMTP_FROM_ADDRESS=your-email@example.com' \
+  --state-values-set 'grafana.env.GF_SMTP_PASSWORD=your-password'
+```
+
+**For production**, use external secret management:
+
+```bash
+# Create secret from external vault
+kubectl create secret generic grafana-email \
+  --from-literal=GF_SMTP_FROM_ADDRESS=$SMTP_USER \
+  --from-literal=GF_SMTP_PASSWORD=$SMTP_PASSWORD \
+  -n monitoring
+
+# This secret is already referenced in helmfile; no further steps needed
+```
+
+### Custom Dashboards
+
+Add new Grafana dashboards:
+
+1. **Export from Grafana**: Share → Export → Copy JSON
+2. **Save to repo**: `k8s/dashboards/my-dashboard.json`
+3. **Recreate ConfigMap**:
+   ```bash
+   kubectl create configmap \
+     -n monitoring \
+     grafana-dashboards-gh \
+     --from-file=./k8s/dashboards/ \
+     --dry-run=client -o yaml | kubectl apply -f -
+   ```
+4. **Restart Grafana**: `kubectl rollout restart deployment/grafana -n monitoring`
+
+### Persistent Volume Provisioning
+
+Both Prometheus and Loki require PersistentVolumes. Ensure your cluster has a default StorageClass:
+
+```bash
+# List available storage classes
+kubectl get storageclass
+
+# Set if not marked as default
+kubectl patch storageclass <name> -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+```
+
+If PVC gets stuck in "Pending", check available nodes:
+
+```bash
+kubectl describe pvc prometheus-server -n monitoring
+kubectl get nodes
+```
+
+### Using External Prometheus or Loki
+
+To use existing Prometheus/Loki instances instead of deploying new ones:
+
+**Option 1: Skip deployment** (using Helmfile selectors - see Exclusion section)
+
+**Option 2: Configure Grafana datasources manually**
+
+Edit [helm/values/grafana.yaml.gotmpl](helm/values/grafana.yaml.gotmpl) and update datasource URLs:
+
+```yaml
+datasources:
+  datasources.yaml:
+    datasources:
+      - name: Prometheus
+        url: http://external-prometheus.example.com:9090  # Change here
+      - name: Loki
+        url: http://external-loki.example.com:3100        # Change here
+```
+
+---
+
+## Verification & Post-Deployment
+
+### 1. Verify All Pods Are Running
+
+```bash
+kubectl get pods -n monitoring
+
+# Expected output (6 running pods):
+# NAME                                              READY   STATUS
+# monitor-routing-...                               1/1     Running
+# prometheus-server-...                             2/2     Running
+# grafana-...                                       1/1     Running
+# loki-...                                          1/1     Running
+# promtail-...                                      1/1     Running (DaemonSet)
+# prometheus-blackbox-exporter-...                  1/1     Running
+```
+
+### 2. Verify Services Are Accessible
+
+```bash
+# Check services exist
+kubectl get svc -n monitoring
+
+# Expected: grafana, prometheus-server, loki, loki-gateway, prometheus-blackbox-exporter
+```
+
+### 3. Test Grafana Access
+
+```bash
+# Port-forward for quick test
+kubectl port-forward svc/grafana -n monitoring 3000:80
+
+# Visit http://localhost:3000
+# Default login: admin / admin
+```
+
+### 4. Verify Datasources
+
+In Grafana UI → Configuration → Data sources:
+
+- **Prometheus** should be healthy (green checkmark)
+- **Loki** should be healthy (green checkmark)
+- Click "Test" on each to verify connectivity
+
+### 5. Check Prometheus Targets
+
+Via Prometheus UI (`https://your-domain.com/prometheus`):
+
+1. Go to **Status → Targets**
+2. Verify scrape jobs are in "UP" state:
+   - `blackbox` (external probes)
+   - `kubernetes-*` (cluster monitoring)
+   - Any custom jobs
+
+### 6. Monitor Logs in Loki
+
+In Grafana, open **Explore** and switch to Loki datasource:
+
+```
+{namespace="monitoring"}
+```
+
+Should show logs from monitoring stack pods.
+
+### 7. Check Storage Usage
+
+```bash
+# Monitor PVC usage
+kubectl get pvc -n monitoring
+
+# View actual storage consumption
+kubectl exec -it loki-0 -n monitoring -- du -sh /loki
+kubectl exec -it prometheus-server-... -n monitoring -- du -sh /prometheus
+```
+
+### Next Steps After Deployment
+
+1. **Change Grafana Admin Password** (required for production)
+   - Login as admin/admin
+   - Profile (top right) → Change Password
+
+2. **Configure Email Alerts**
+   - **Test SMTP**: Grafana → Alerting → Notification channels → Test
+   - **Create Alert Rules**: Grafana → Alerting → Alert Rules → Create
+
+3. **Customize Dashboards**
+   - Import community dashboards: Grafana → Dashboards → Import
+   - Create custom dashboards for your application metrics
+
+4. **Setup Log Aggregation**
+   - Ensure Promtail is collecting from all namespaces (DaemonSet deployed cluster-wide)
+   - Test log queries in Explore → Loki datasource
+
+5. **Monitor Prometheus Retention**
+   - Default retention: 15 days
+   - Check actual usage: `kubectl top pod -n monitoring`
+   - Increase if needed via Helm values
+
+6. **Backup Dashboards & Alerts** (Production)
+   ```bash
+   # Export all dashboards and alert rules periodically
+   # Use Grafana API or backup tools like https://github.com/grafana/cortex-tools
+   ```
+
+---
+
+## Troubleshooting
+
+### Prometheus Readiness Probe Failing
+
+If Prometheus returns HTTP 503 for readiness checks (common with path prefix `/prometheus`):
+
+```bash
+kubectl patch deployment prometheus-server -n monitoring --type=json -p '[
+  {"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/prometheus/-/healthy"},
+  {"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe/httpGet/path","value":"/prometheus/-/healthy"}
+]'
+```
+
+### Loki OOM Errors
+
+Increase memory request:
+
+```bash
+helmfile sync --state-values-set baseUrl=... \
+  --state-values-set 'loki.singleBinary.resources.requests.memory=2Gi'
+```
+
+### VirtualService Not Routing Traffic
+
+Verify Istio gateway exists:
+
+```bash
+kubectl get gateway -n default
+kubectl get virtualservice -n monitoring
+
+# Check routing rules applied
+kubectl logs -n istio-system -l app=istiod | grep "monitor"
+```
+
+### Dashboard Not Loading in Grafana
+
+1. Check ConfigMap was created: `kubectl get cm grafana-dashboards-gh -n monitoring`
+2. Restart Grafana: `kubectl rollout restart deployment/grafana -n monitoring`
+3. Verify dashboard provisioning in **Grafana → Administration → Dashboards → Manage**
+
+### Helm Dependency Errors
+
+If Helm repos are not available:
+
+```bash
+helmfile repos
+helmfile charts   # Updates chart dependencies
+
+# If helmfile itself not found:
+helmfile --version  # Verify installation
+```
+
+---
+
 ## License
 
-This project is distributed under the terms of the [Apache License, Version 2.0 (AL2)](http://www.apache.org/licenses/LICENSE-2.0).  The license applies to this file and other files in the [GitHub repository](https://github.com/Gravitate-Health/Gateway) hosting this file.
-
-```
-Copyright 2022 Universidad Politécnica de Madrid
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
----
-## Authors and history
-
-- Guillermo Mejías ([@gmej](https://github.com/gmej))
-
-
----
-## Acknowledgments
-
-- [Setup Prometheus monitoring on kubernetes](https://devopscube.com/setup-prometheus-monitoring-on-kubernetes/)
-- [Setup Grafana on kubernetes](https://devopscube.com/setup-grafana-kubernetes/)
-- [Setup Prometheus Node Exporter on Kubernetes](https://devopscube.com/node-exporter-kubernetes/)
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
 
 ---
 
-Thanks [bibinwilson](https://github.com/bibinwilson) for this YAMLs
-- [Prometheus Kubernetes prepared yamls](https://github.com/bibinwilson/kubernetes-prometheus)
-- [Grafana Kubernetes prepared yamls](https://github.com/bibinwilson/kubernetes-grafana)
-  
-- [Basic kubernetes alerts](https://gist.github.com/efossas/c0bba665469186621f89f7bd89b3f0a9#file-prometheus-yml)
+## Support & Contributing
 
----
+For issues, questions, or contributions, please refer to the project's GitHub repository.
 
-- [Setting Up Alert Manager on Kubernetes](https://devopscube.com/alert-manager-kubernetes-guide/)
+**Disclaimer**: This monitoring stack is designed for Gravitate Health project environments. Adapt configurations to your specific security, compliance, and operational requirements before production deployment.

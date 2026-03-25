@@ -1,17 +1,19 @@
+{{- $baseUrl := trimSuffix "/" (default "https://gravitate-health.lst.tfo.upm.es" .Values.baseUrl) -}}
+
 alertmanager:
   enabled: false
 persistentVolume:
   enabled: true
   size: 10Gi
 server:
-  #baseUrl: "https://gravitate-health.lst.tfo.upm.es/prometheus"
-  #prefixUrl: "https://gravitate-health.lst.tfo.upm.es/prometheus"
+  #baseUrl: "{{ $baseUrl }}/prometheus"
+  #prefixUrl: "{{ $baseUrl }}/prometheus"
   #extraArgs:
   extraFlags:
     - web.enable-lifecycle
     - web.enable-admin-api
     - web.route-prefix=/prometheus
-    - web.external-url=https://gravitate-health.lst.tfo.upm.es/prometheus
+    - web.external-url={{ $baseUrl }}/prometheus
 configmapReload:
   prometheus:
     enabled: false

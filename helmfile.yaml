@@ -1,11 +1,3 @@
-environments:
-  default:
-    values:
-      - kubernetes/helmfile/environments/default.yaml
-  prod:
-    values:
-      - kubernetes/helmfile/environments/prod.yaml
-
 repositories:
   - name: grafana
     url: https://grafana.github.io/helm-charts
@@ -20,36 +12,39 @@ helmDefaults:
 releases:
   - name: monitor-routing
     namespace: monitoring
-    chart: ./kubernetes/charts/monitor-routing
+    chart: ./helm/charts/monitor-routing
     values:
-      - kubernetes/helmfile/environments/{{ .Environment.Name }}.yaml
+      - virtualService:
+          hosts:
+            - "*"
+          gateway: default/gh-gateway
 
   - name: prometheus
     namespace: monitoring
     chart: prometheus-community/prometheus
     values:
-      - {{ if eq .Environment.Name "prod" }}kubernetes/prometheus/values-prod.yaml{{ else }}kubernetes/prometheus/values.yaml{{ end }}
+      - helm/values/prometheus.yaml.gotmpl
 
   - name: loki
     namespace: monitoring
     chart: grafana/loki
     values:
-      - {{ if eq .Environment.Name "prod" }}kubernetes/loki/values-prod.yaml{{ else }}kubernetes/loki/values.yaml{{ end }}
+      - helm/values/loki.yaml
 
   - name: promtail
     namespace: monitoring
     chart: grafana/promtail
     values:
-      - kubernetes/promtail/values.yaml
+      - helm/values/promtail.yaml
 
   - name: prometheus-blackbox-exporter
     namespace: monitoring
     chart: prometheus-community/prometheus-blackbox-exporter
     values:
-      - kubernetes/blackbox-exporter/values.yaml
+      - helm/values/blackbox-exporter.yaml
 
   - name: grafana
     namespace: monitoring
     chart: grafana/grafana
     values:
-      - {{ if eq .Environment.Name "prod" }}kubernetes/grafana/values-prod.yaml{{ else }}kubernetes/grafana/values.yaml{{ end }}
+      - helm/values/grafana.yaml.gotmpl
