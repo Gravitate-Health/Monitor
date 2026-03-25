@@ -1,0 +1,4 @@
+virtualService:
+  hosts:
+    - "*"
+  gateway: default/gh-gateway

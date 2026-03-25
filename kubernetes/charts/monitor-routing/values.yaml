@@ -1,0 +1,18 @@
+virtualService:
+  name: monitor
+  hosts:
+    - "*"
+  gateway: default/gh-gateway
+  routes:
+    grafana:
+      prefix: /grafana
+      host: grafana.monitoring.svc.cluster.local
+      port: 80
+    loki:
+      prefix: /loki
+      host: loki.monitoring.svc.cluster.local
+      port: 3100
+    prometheus:
+      prefix: /prometheus
+      host: prometheus-server.monitoring.svc.cluster.local
+      port: 80

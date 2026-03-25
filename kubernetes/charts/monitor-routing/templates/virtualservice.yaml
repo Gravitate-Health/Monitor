@@ -1,0 +1,36 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{ .Values.virtualService.name }}
+spec:
+  hosts:
+{{- range .Values.virtualService.hosts }}
+    - {{ . | quote }}
+{{- end }}
+  gateways:
+    - {{ .Values.virtualService.gateway | quote }}
+  http:
+    - match:
+        - uri:
+            prefix: {{ .Values.virtualService.routes.grafana.prefix }}
+      route:
+        - destination:
+            host: {{ .Values.virtualService.routes.grafana.host }}
+            port:
+              number: {{ .Values.virtualService.routes.grafana.port }}
+    - match:
+        - uri:
+            prefix: {{ .Values.virtualService.routes.loki.prefix }}
+      route:
+        - destination:
+            host: {{ .Values.virtualService.routes.loki.host }}
+            port:
+              number: {{ .Values.virtualService.routes.loki.port }}
+    - match:
+        - uri:
+            prefix: {{ .Values.virtualService.routes.prometheus.prefix }}
+      route:
+        - destination:
+            host: {{ .Values.virtualService.routes.prometheus.host }}
+            port:
+              number: {{ .Values.virtualService.routes.prometheus.port }}
